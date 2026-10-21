@@ -1,0 +1,58 @@
+# =====================================================================
+# Pipeline SAST (Static Application Security Testing) para OWASP Juice Shop
+# Ejecuta Bearer CLI (herramienta SAST gratuita) sobre todo el repositorio.
+# - El reporte SARIF se publica en la pestaña "Security" > "Code scanning".
+# - El reporte HTML queda descargable como artefacto de la ejecución.
+# =====================================================================
+name: SAST Bearer # Nombre del workflow que aparece en la pestaña "Actions"
+
+on: # Eventos que disparan el pipeline
+  push: # 1) Cuando se hace "git push"...
+    branches: [main] # ...a la rama main
+  pull_request: # 2) Cuando se abre o actualiza un Pull Request...
+    branches: [main] # ...que apunta a la rama main
+  workflow_dispatch: # 3) Permite ejecutarlo manualmente con el botón "Run workflow"
+
+permissions: # Permisos mínimos del token GITHUB_TOKEN (principio de menor privilegio)
+  contents: read # Solo lectura del código del repositorio (necesario para el checkout)
+  security-events: write # Necesario para subir resultados SARIF a "Code scanning"
+
+jobs: # Lista de trabajos; cada uno corre en una máquina virtual distinta
+  bearer: # Identificador interno del job
+    name: Bearer SAST # Nombre visible del job en la interfaz de GitHub
+    runs-on: ubuntu-latest # Máquina virtual Linux proporcionada por GitHub
+    steps: # Pasos que se ejecutan en orden dentro del job
+      - name: Descargar el código # Nombre visible del paso
+        uses: actions/checkout@v5 # Clona el repositorio en la máquina virtual
+
+      - name: Ejecutar Bearer (reporte SARIF) # Primer escaneo: genera el SARIF para GitHub
+        uses: bearer/bearer-action@v2 # Acción oficial de Bearer (descarga y ejecuta "bearer scan")
+        with: # Parámetros de la acción
+          path: . # Carpeta a escanear: "." = todo el repositorio
+          format: sarif # Formato de salida estándar SARIF (lo entiende GitHub Code scanning)
+          output: bearer.sarif # Archivo donde se guardan los resultados
+          exit-code: 0 # Fuerza código de salida 0 aunque haya hallazgos, para que el job no falle aquí
+
+      - name: Ejecutar Bearer (reporte HTML) # Segundo escaneo: genera el reporte legible para personas
+        if: always() # Se ejecuta aunque el paso anterior falle
+        uses: bearer/bearer-action@v2 # Misma acción oficial de Bearer
+        with: # Parámetros de la acción
+          path: . # Carpeta a escanear: "." = todo el repositorio
+          format: html # Formato de salida HTML (se abre en el navegador)
+          output: bearer-report.html # Archivo donde se guarda el reporte HTML
+          exit-code: 0 # Fuerza código de salida 0 aunque haya hallazgos
+
+      - name: Subir resultados a GitHub Code scanning # Publica el SARIF en "Security" > "Code scanning"
+        if: always() # Se ejecuta siempre, aunque Bearer haya fallado o encontrado vulnerabilidades
+        uses: github/codeql-action/upload-sarif@v4 # Acción oficial de GitHub para cargar SARIF de cualquier herramienta (no ejecuta CodeQL)
+        with: # Parámetros de la acción
+          sarif_file: bearer.sarif # Archivo SARIF generado por Bearer
+          category: bearer # Etiqueta que identifica estos resultados en "Code scanning"
+
+      - name: Guardar reporte HTML como artefacto # Permite descargar el HTML desde la página de la ejecución
+        if: always() # Se ejecuta siempre, aunque algún paso anterior falle
+        uses: actions/upload-artifact@v4 # Acción oficial para adjuntar archivos a la ejecución del workflow
+        with: # Parámetros de la acción
+          name: bearer-report-html # Nombre del artefacto descargable
+          path: bearer-report.html # Archivo que se adjunta
+          retention-days: 30 # Días que GitHub conserva el artefacto antes de borrarlo

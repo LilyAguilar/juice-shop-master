@@ -71,3 +71,8 @@ config/*.yml
 # Misc
 .playwright-mcp/
 cypress/screenshots/
+
+# Resultados de analisis SAST local
+*.sarif
+reportes/
+.venv-sast/
