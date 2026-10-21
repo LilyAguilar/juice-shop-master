@@ -36,13 +36,13 @@ export function calculate() {
 
 // Recursive-descent parser supporting only numbers, + - * / and parentheses
 function evaluateArithmetic (input: string): number {
-  const tokens = input.match(/\d+(?:\.\d+)?|[+\-*/()]|\S/g) ?? []
+  const symbols = input.match(/\d+(?:\.\d+)?|[+\-*/()]|\S/g) ?? []
   let pos = 0
 
   const parseExpression = (): number => {
     let value = parseTerm()
-    while (tokens[pos] === '+' || tokens[pos] === '-') {
-      const op = tokens[pos++]
+    while (symbols[pos] === '+' || symbols[pos] === '-') {
+      const op = symbols[pos++]
       const rhs = parseTerm()
       value = op === '+' ? value + rhs : value - rhs
     }
@@ -51,8 +51,8 @@ function evaluateArithmetic (input: string): number {
 
   const parseTerm = (): number => {
     let value = parseFactor()
-    while (tokens[pos] === '*' || tokens[pos] === '/') {
-      const op = tokens[pos++]
+    while (symbols[pos] === '*' || symbols[pos] === '/') {
+      const op = symbols[pos++]
       const rhs = parseFactor()
       value = op === '*' ? value * rhs : value / rhs
     }
@@ -60,18 +60,18 @@ function evaluateArithmetic (input: string): number {
   }
 
   const parseFactor = (): number => {
-    const token = tokens[pos++]
-    if (token === '-') return -parseFactor()
-    if (token === '(') {
+    const sym = symbols[pos++]
+    if (sym === '-') return -parseFactor()
+    if (sym === '(') {
       const value = parseExpression()
-      if (tokens[pos++] !== ')') throw new Error('Expected )')
+      if (symbols[pos++] !== ')') throw new Error('Expected )')
       return value
     }
-    if (token !== undefined && /^\d+(?:\.\d+)?$/.test(token)) return Number(token)
-    throw new Error('Unexpected token')
+    if (sym !== undefined && /^\d+(?:\.\d+)?$/.test(sym)) return Number(sym)
+    throw new Error('Unexpected symbol')
   }
 
   const result = parseExpression()
-  if (pos !== tokens.length || !Number.isFinite(result)) throw new Error('Invalid expression')
+  if (pos !== symbols.length || !Number.isFinite(result)) throw new Error('Invalid expression')
   return result
 }
